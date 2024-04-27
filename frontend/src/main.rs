@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use model::ShoppingListItem;
+use model::{PostShopItem, ShoppingListItem};
 
 const _STYLE: &str = manganis::mg!(file("public/tailwind.css"));
 
@@ -9,6 +9,7 @@ fn main() {
 
 #[allow(non_snake_case)]
 pub fn App() -> Element {
+    let change_signal = use_signal(|| ListChanged);
     let rust_basel = "Rust Basel";
     rsx! {
         h1{
@@ -18,13 +19,19 @@ pub fn App() -> Element {
             class: "btn",
             "My stylish button"
         }
-        ShoppingList{}
+        ShoppingList{change_signal}
+        ItemInput{change_signal}
     }
 }
 
+struct ListChanged;
+
 #[component]
-fn ShoppingList() -> Element {
-    let items_request = use_resource(move || async move { get_items().await });
+fn ShoppingList(change_signal: Signal<ListChanged>) -> Element {
+    let items_request = use_resource(move || async move { 
+        change_signal.read();
+        get_items().await
+    });
 
     match &*items_request.read_unchecked() {
         Some(Ok(list)) => rsx! {
@@ -76,6 +83,67 @@ fn ShoppingListItemComponent(display_name: String, posted_by: String) -> Element
     }
 }
 
+#[component]
+fn ItemInput(change_signal: Signal<ListChanged>) -> Element {
+    let mut item = use_signal(|| "".to_string());
+    let mut author = use_signal(|| "".to_string());
+
+    //let onsubmit = move |evt: FormEvent| {};
+    let onsubmit = move |_| {
+        spawn({
+            async move {
+                let item_name = item.read().to_string();
+                let author = author.read().to_string();
+                let response = post_item(PostShopItem {
+                    title: item_name,
+                    posted_by: author,
+                })
+                .await;
+
+                if response.is_ok() {
+                    change_signal.write();
+                }
+            }
+        });
+    };
+
+    rsx! {
+        div {
+            class: "w-300 m-4 mt-16 rounded",
+            form { class: "grid grid-cols-3 gap-2",
+                onsubmit: onsubmit,
+                div {
+                    input {
+                        value: "{item}",
+                        class: "input input-bordered input-primary w-full",
+                        placeholder: "next item..",
+                        r#type: "text",
+                        id: "item_name",
+                        name: "item_name",
+                        oninput: move |e| item.set(e.data.value().clone())
+                    }
+                }
+                div {
+                    input {
+                        value: "{author}",
+                        class: "input input-bordered input-primary w-full",
+                        placeholder: "wanted by..",
+                        r#type: "text",
+                        id: "author",
+                        name: "author",
+                        oninput: move |e| author.set(e.data.value().clone())
+                    }
+                }
+                button {
+                    class: "btn btn-primary w-full",
+                    r#type: "submit",
+                    "Commit"
+                }
+            }
+        }
+    }
+}
+
 async fn get_items() -> Result<Vec<ShoppingListItem>, reqwest::Error> {
     let url = "http://localhost:3001/items";
     let list = reqwest::get(url)
@@ -84,4 +152,16 @@ async fn get_items() -> Result<Vec<ShoppingListItem>, reqwest::Error> {
         .await;
 
     list
+}
+
+async fn post_item(item: PostShopItem) -> Result<ShoppingListItem, reqwest::Error> {
+    let response = reqwest::Client::new()
+        .post("http://localhost:3001/items")
+        .json(&item)
+        .send()
+        .await?
+        .json::<ShoppingListItem>()
+        .await?;
+
+    Ok(response)
 }

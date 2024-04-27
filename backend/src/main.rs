@@ -1,17 +1,27 @@
-use axum::{extract::Path, response::IntoResponse, routing::get, Router, Json};
+use axum::{extract::Path, response::IntoResponse, routing::{get, post, delete}, Router, Json};
 use serde::{Deserialize, Serialize};
-use axum::routing::post;
 use model::ShoppingListItem;
 use tower_http::cors::CorsLayer;
+mod database;
+use std::sync::{Arc, RwLock};
+use database::InMemoryDatabase;
+mod controllers;
+use controllers::{add_item, get_items, delete_item};
+
+type Database = Arc<RwLock<InMemoryDatabase>>;
 
 #[tokio::main]
 async fn main() {
+    let db = Database::default();
     let app = Router::new()
         .route("/", get(hello_world))
         .route("/:name", get(hello_name))
         .route("/your-route", post(workshop_echo))
-        .route("/items", get(get_items))
-        .layer(CorsLayer::permissive());
+        .route("/items-old", get(get_items_old))
+        .route("/items", get(get_items).post(add_item))
+        .route("/items/:uuid", delete(delete_item))
+        .layer(CorsLayer::permissive())
+        .with_state(db);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3001").await.unwrap();
     axum::serve(listener, app).await.unwrap();
@@ -35,7 +45,7 @@ async fn workshop_echo(Json(workshop): Json<Workshop>) -> impl IntoResponse {
     Json(workshop)
 }
 
-async fn get_items() -> impl IntoResponse {
+async fn get_items_old() -> impl IntoResponse {
     let items = vec!["milk", "eggs", "potatoes", "dogfood"];
 
     let uuid: &str = "a28e2805-196b-4cdb-ba5c-a1ac18ea264a";
