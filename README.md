@@ -10,4 +10,10 @@ Note: unknown, because it runs in browser not in host machine
 ```shell
 cargo install dioxus-cli
 rustup target add wasm32-unknown-unknown
+cargo install cargo-watch
+cargo install cargo-make
+```
+
+```shell
+cargo make --no-workspace dev
 ```
