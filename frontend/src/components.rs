@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use model::{PostShopItem};
-use crate::controllers::{get_items, post_item};
+use crate::controllers::{delete_item, get_items, post_item};
 
 #[allow(non_snake_case)]
 pub fn App() -> Element {
@@ -38,7 +38,9 @@ pub fn ShoppingList(change_signal: Signal<ListChanged>) -> Element {
                             key: "{i.uuid}",
                             ShoppingListItemComponent{
                                 display_name: i.title.clone(),
-                                posted_by: i.posted_by.clone()
+                                posted_by: i.posted_by.clone(),
+                                item_id: i.uuid.clone(),
+                                change_signal,
                             },
                         }
                     }
@@ -63,7 +65,12 @@ pub fn ShoppingList(change_signal: Signal<ListChanged>) -> Element {
 }
 
 #[component]
-pub fn ShoppingListItemComponent(display_name: String, posted_by: String) -> Element {
+pub fn ShoppingListItemComponent(
+    display_name: String,
+    posted_by: String,
+    item_id: String,
+    change_signal: Signal<ListChanged>,
+) -> Element {
     rsx! {
         div {
             class: "flex items-center space-x-2",
@@ -74,6 +81,7 @@ pub fn ShoppingListItemComponent(display_name: String, posted_by: String) -> Ele
             span {
                 "posted by {posted_by}"
             }
+            ItemDeleteButton {item_id, change_signal}
         }
     }
 }
@@ -133,6 +141,40 @@ pub fn ItemInput(change_signal: Signal<ListChanged>) -> Element {
                     class: "btn btn-primary w-full",
                     r#type: "submit",
                     "Commit"
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn ItemDeleteButton(item_id: String, change_signal: Signal<ListChanged>) -> Element {
+    let onclick = move |_| {
+        spawn({
+            let item_id = item_id.clone();
+            async move {
+                let response = delete_item(&item_id).await;
+                if response.is_ok() {
+                    change_signal.write();
+                }
+            }
+        });
+    };
+
+    rsx! {
+        button {
+            onclick: onclick,
+            class: "btn btn-circle",
+            svg {
+                class: "h-6 w-6",
+                view_box: "0 0 24 24",
+                stroke: "currentColor",
+                stroke_width: "2",
+                stroke_linecap: "round",
+                stroke_linejoin: "round",
+                fill: "none",
+                path {
+                    d: "M6 18L18 6M6 6l12 12"
                 }
             }
         }
