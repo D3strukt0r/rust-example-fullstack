@@ -6,7 +6,7 @@ mod database;
 use std::sync::{Arc, RwLock};
 use database::InMemoryDatabase;
 mod controllers;
-use controllers::{add_item, get_items, delete_item};
+use controllers::{add_item, get_items, delete_item, create_shopping_list};
 
 type Database = Arc<RwLock<InMemoryDatabase>>;
 
@@ -18,8 +18,9 @@ async fn main() {
         .route("/:name", get(hello_name))
         .route("/your-route", post(workshop_echo))
         .route("/items-old", get(get_items_old))
-        .route("/items", get(get_items).post(add_item))
-        .route("/items/:uuid", delete(delete_item))
+        .route("/list", get(create_shopping_list))
+        .route("/list/:list_uuid/items", get(get_items).post(add_item))
+        .route("/list/:list_uuid/items/:item_uuid", delete(delete_item))
         .layer(CorsLayer::permissive())
         .with_state(db);
 

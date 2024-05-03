@@ -13,6 +13,11 @@ pub struct PostShopItem {
     pub posted_by: String,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct CreateListResponse {
+    pub uuid: String,
+}
+
 pub fn add(left: usize, right: usize) -> usize {
     left + right
 }
